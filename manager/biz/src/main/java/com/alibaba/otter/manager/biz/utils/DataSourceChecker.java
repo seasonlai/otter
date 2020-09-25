@@ -26,6 +26,8 @@ import java.util.List;
 
 import javax.sql.DataSource;
 
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
+import com.alibaba.otter.shared.common.mq.RabbitMqSender;
 import org.apache.commons.lang.StringUtils;
 import org.apache.ddlutils.model.Table;
 import org.slf4j.Logger;
@@ -108,9 +110,47 @@ public class DataSourceChecker {
             logger.error("", e);
         }
     }
-
     @SuppressWarnings("resource")
-    public String check(String url, String username, String password, String encode, String sourceType) {
+    public String check(String url, String username, String password, String encode, String sourceType, String sourceVirtualHost) {
+        if ("MYSQL".equalsIgnoreCase(sourceType) || "ORACLE".equalsIgnoreCase(sourceType)) {
+            return checkDB(url, username, password, encode, sourceType);
+        } else if ("RabbitMQ".equalsIgnoreCase(sourceType)) {
+            return checkMQ(url, username, password, sourceVirtualHost);
+        } else {
+            return DATABASE_SUCCESS;
+        }
+    }
+
+    public String checkMQ(String url, String username, String password, String sourceVirtualHost) {
+        if (StringUtils.isEmpty(url) || !url.contains(":")) {
+            return DATABASE_FAIL;
+        } else { //TODO 检查mq连接
+            final RabbitMqMediaSource rabbitMqMediaSource = new RabbitMqMediaSource();
+            rabbitMqMediaSource.setUrl(url);
+            rabbitMqMediaSource.setVirtualHost(sourceVirtualHost);
+            rabbitMqMediaSource.setUsername(username);
+            rabbitMqMediaSource.setPassword(password);
+            RabbitMqSender sender = null;
+            try {
+                sender = RabbitMqSender.createNewSender(rabbitMqMediaSource);
+            }catch (Exception e){
+                e.printStackTrace();
+                return DATABASE_FAIL;
+            } finally {
+                if(sender!=null) {
+                    try {
+                        sender.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            return DATABASE_SUCCESS;
+        }
+    }
+
+    public String checkDB(String url, String username, String password, String encode, String sourceType) {
+
         Connection conn = null;
         Statement stmt = null;
         ResultSet rs = null;
@@ -200,6 +240,21 @@ public class DataSourceChecker {
     }
 
     public String checkMap(String namespace, String name, Long dataSourceId) {
+        DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
+        if (source.getType().isMysql() || source.getType().isOracle()) {
+            return checkMapDB(namespace, name, dataSourceId);
+        } else if (source.getType().isRabbitMQ()) {
+            return checkMapMQ(namespace, name, dataSourceId);
+        } else {
+            return TABLE_SUCCESS;
+        }
+    }
+
+    public String checkMapMQ(String namespace, String name, Long dataSourceId) {
+        return TABLE_SUCCESS;
+    }
+
+    public String checkMapDB(String namespace, String name, Long dataSourceId) {
         Connection conn = null;
         Statement stmt = null;
         DataMediaSource source = dataMediaSourceService.findById(dataSourceId);

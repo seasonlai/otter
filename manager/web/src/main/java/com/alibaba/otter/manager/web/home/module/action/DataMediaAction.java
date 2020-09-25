@@ -34,6 +34,8 @@ import com.alibaba.otter.shared.common.model.config.data.DataMedia;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.db.DbMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.mq.MqMediaSource;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 
 public class DataMediaAction extends AbstractAction {
 
@@ -64,6 +66,8 @@ public class DataMediaAction extends AbstractAction {
             dataMedia.setSource((DbMediaSource) dataMediaSource);
         } else if (dataMediaSource.getType().isNapoli() || dataMediaSource.getType().isMq()) {
             dataMedia.setSource((MqMediaSource) dataMediaSource);
+        } else if (dataMediaSource.getType().isRabbitMQ()) {
+            dataMedia.setSource((RabbitMqMediaSource) dataMediaSource);
         }
 
         try {

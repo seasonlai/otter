@@ -35,7 +35,10 @@ public enum DataMediaType {
     /** napoli */
     NAPOLI,
     /** diamond push for us */
-    DIAMOND_PUSH;
+    DIAMOND_PUSH,
+    /** rabbitmq */
+    RABBITMQ
+    ;
 
     public boolean isMysql() {
         return this == DataMediaType.MYSQL;
@@ -67,5 +70,9 @@ public enum DataMediaType {
 
     public boolean isDiamondPush() {
         return this == DataMediaType.DIAMOND_PUSH;
+    }
+
+    public boolean isRabbitMQ(){
+        return this == DataMediaType.RABBITMQ;
     }
 }

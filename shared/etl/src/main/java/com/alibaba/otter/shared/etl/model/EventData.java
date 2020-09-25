@@ -69,6 +69,15 @@ public class EventData implements ObjectData, Serializable {
      */
     private List<EventColumn> columns          = new ArrayList<EventColumn>();
 
+    /**
+     * 变更后的行数据
+     */
+    private List<EventColumn> maxwellColumns = new ArrayList<EventColumn>();
+    /**
+     * 变更前的字段
+     */
+    private List<EventColumn> oldMaxwellColumns = new ArrayList<EventColumn>();
+
     // ====================== 运行过程中对数据的附加属性 =============================
     /**
      * 预计的size大小，基于binlog event的推算
@@ -194,6 +203,22 @@ public class EventData implements ObjectData, Serializable {
 
     public void setOldKeys(List<EventColumn> oldKeys) {
         this.oldKeys = oldKeys;
+    }
+
+    public List<EventColumn> getMaxwellColumns() {
+        return maxwellColumns;
+    }
+
+    public void setMaxwellColumns(List<EventColumn> maxwellColumns) {
+        this.maxwellColumns = maxwellColumns;
+    }
+
+    public List<EventColumn> getOldMaxwellColumns() {
+        return oldMaxwellColumns;
+    }
+
+    public void setOldMaxwellColumns(List<EventColumn> oldMaxwellColumns) {
+        this.oldMaxwellColumns = oldMaxwellColumns;
     }
 
     public SyncMode getSyncMode() {

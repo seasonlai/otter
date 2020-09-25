@@ -41,6 +41,7 @@ $control.setTemplate("home:navigation.vm")
             <select id="sourceType" name="$dataMediaSourceGroup.type.key" onchange="changeform();" >
             <option value="MYSQL">MySQL</option>
             <option value="ORACLE">Oracle</option>
+            <option value="RABBITMQ">RabbitMQ</option>
 			</select><span class="red">*</span>
         </td>
       </tr>
@@ -68,6 +69,14 @@ $control.setTemplate("home:navigation.vm")
 			<span class="red">#addDataSourceMessage ($dataMediaSourceGroup.url)</span>
 		</td>
       </tr>
+        <tr id="virtualHostTr" style="display: none;">
+            <th>virtualHost：</th>
+            <td>
+                <input id="sourceVirtualHost" name="$dataMediaSourceGroup.virtualHost.key" value="$!dataMediaSourceGroup.virtualHost.value" type="text" class="setting_input"/><span class="red">*</span>
+                <br />
+                <span class="red">#addDataSourceMessage ($dataMediaSourceGroup.virtualHost)</span>
+            </td>
+        </tr>
 	  #**
 	  <tr> 
         <th>StorePath：</th>
@@ -78,7 +87,7 @@ $control.setTemplate("home:navigation.vm")
 		</td>
       </tr>
 	  *#
-	  <tr> 
+	  <tr id="sourceEncodeTr">
         <th>编码：</th>
         <td>
 			<select id="sourceEncode" name="$dataMediaSourceGroup.encode.key"  style="width:200px;" > 
@@ -100,7 +109,8 @@ $control.setTemplate("home:navigation.vm")
         <td>
 			mysql例子: jdbc:mysql://10.20.144.15:3306<br/>
 			oracle例子 : jdbc:oracle:thin:@10.20.144.29:1521:OINTEST<br/>
-			media例子 : jdbc:mysql://groupKey=key (更改 key)
+			media例子 : jdbc:mysql://groupKey=key (更改 key)<br/>
+			rabbitmq例子 : 127.0.0.1:5672
 		</td>
       </tr>
       

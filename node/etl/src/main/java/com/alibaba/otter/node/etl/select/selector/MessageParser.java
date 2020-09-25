@@ -16,13 +16,7 @@
 
 package com.alibaba.otter.node.etl.select.selector;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.ddlutils.model.Table;
@@ -495,6 +489,11 @@ public class MessageParser {
         // 有变化的非主键
         Map<String, EventColumn> notKeyColumns = new LinkedHashMap<String, EventColumn>();
 
+        // 变更后的行数据
+        Map<String, EventColumn> maxwellColumns = new LinkedHashMap<String, EventColumn>();
+        // 变更前的旧数据
+        Map<String, EventColumn> oldMaxwellColumns = new LinkedHashMap<String, EventColumn>();
+
         if (eventType.isInsert()) {
             for (Column column : afterColumns) {
                 if (isKey(tableHolder, tableName, column)) {
@@ -503,6 +502,7 @@ public class MessageParser {
                     // mysql 有效
                     notKeyColumns.put(column.getName(), copyEventColumn(column, true, tableHolder));
                 }
+                maxwellColumns.put(column.getName(), copyEventColumn(column, true, tableHolder));
             }
         } else if (eventType.isDelete()) {
             for (Column column : beforeColumns) {
@@ -512,6 +512,7 @@ public class MessageParser {
                     // mysql 有效
                     notKeyColumns.put(column.getName(), copyEventColumn(column, true, tableHolder));
                 }
+                oldMaxwellColumns.put(column.getName(), copyEventColumn(column, false, tableHolder));
             }
         } else if (eventType.isUpdate()) {
             // 获取变更前的主键.
@@ -521,12 +522,16 @@ public class MessageParser {
                     // 同时记录一下new
                     // key,因为mysql5.6之后出现了minimal模式,after里会没有主键信息,需要在before记录中找
                     keyColumns.put(column.getName(), copyEventColumn(column, true, tableHolder));
+                    maxwellColumns.put(column.getName(), copyEventColumn(column, true, tableHolder));
                 } else {
                     if (needAllColumns && entry.getHeader().getSourceType() == CanalEntry.Type.ORACLE) {
                         // 针对行记录同步时，针对oracle记录一下非主键的字段，因为update时针对未变更的字段在aftercolume里没有
                         notKeyColumns.put(column.getName(), copyEventColumn(column, isRowMode, tableHolder));
                     }
+
                 }
+                //加入老字段
+                oldMaxwellColumns.put(column.getName(), copyEventColumn(column, false, tableHolder));
             }
             for (Column column : afterColumns) {
                 if (isKey(tableHolder, tableName, column)) {
@@ -542,23 +547,41 @@ public class MessageParser {
                     if (entry.getHeader().getSourceType() == CanalEntry.Type.MYSQL) { // mysql的after里部分数据为未变更,oracle里after里为变更字段
                         isUpdate = column.getUpdated();
                     }
-
                     notKeyColumns.put(column.getName(), copyEventColumn(column, isRowMode || isUpdate, tableHolder));// 如果是rowMode，所有字段都为updated
                 }
+                maxwellColumns.put(column.getName(), copyEventColumn(column, column.getUpdated(), tableHolder));
             }
 
             if (entry.getHeader().getSourceType() == CanalEntry.Type.ORACLE) { // 针对oracle进行特殊处理
                 checkUpdateKeyColumns(oldKeyColumns, keyColumns);
+            }
+
+            for (Iterator<Map.Entry<String, EventColumn>> it = oldMaxwellColumns.entrySet().iterator(); it.hasNext();){
+                final Map.Entry<String, EventColumn> next = it.next();
+                final EventColumn updateColumn = maxwellColumns.get(next.getKey());
+                if(updateColumn == null || updateColumn.isUpdate()){
+                    continue;
+                }
+                it.remove();
             }
         }
 
         List<EventColumn> keys = new ArrayList<EventColumn>(keyColumns.values());
         List<EventColumn> oldKeys = new ArrayList<EventColumn>(oldKeyColumns.values());
         List<EventColumn> columns = new ArrayList<EventColumn>(notKeyColumns.values());
+        //maxwell
+        List<EventColumn> newColumns = new ArrayList<EventColumn>(maxwellColumns.values());
+        List<EventColumn> oldColumns = new ArrayList<EventColumn>(oldMaxwellColumns.values());
 
         Collections.sort(keys, new EventColumnIndexComparable());
         Collections.sort(oldKeys, new EventColumnIndexComparable());
         Collections.sort(columns, new EventColumnIndexComparable());
+        //maxwell
+        Collections.sort(newColumns, new EventColumnIndexComparable());
+        Collections.sort(oldColumns, new EventColumnIndexComparable());
+        eventData.setMaxwellColumns(newColumns);
+        eventData.setOldMaxwellColumns(oldColumns);
+
         if (!keyColumns.isEmpty()) {
             eventData.setKeys(keys);
             if (eventData.getEventType().isUpdate() && !oldKeys.equals(keys)) { // update类型，如果存在主键不同,则记录下old

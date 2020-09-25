@@ -205,9 +205,7 @@
      -->
      
 	<root level="WARN">
-		<!--  
 		<appender-ref ref="STDOUT"/>
-		-->
 		<appender-ref ref="TASK-ROOT" />
 	</root>
 </configuration>

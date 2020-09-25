@@ -42,9 +42,10 @@ $control.setTemplate("home:navigation.vm")
       <tr> 
         <th>类型：</th>
         <td>
-            <select id="sourceType" name="$dataMediaSourceGroup.type.key">			
+            <select id="sourceType" name="$dataMediaSourceGroup.type.key" onchange="changeform();">
 				<option value="MYSQL" #if($source.type.isMysql()) selected="selected" #end>MySQL</option>
 				<option value="ORACLE" #if($source.type.isOracle()) selected="selected" #end>Oracle</option>
+				<option value="RABBITMQ" #if($source.type.isRabbitMQ()) selected="selected" #end>RabbitMq</option>
 			</select><span class="red">*</span>
         </td>
 	  </tr>
@@ -72,6 +73,14 @@ $control.setTemplate("home:navigation.vm")
 			<span class="red">#editDataSourceMessage ($dataMediaSourceGroup.url)</span>
 		</td>
       </tr>
+		<tr id="virtualHostTr" #if(!$source.type.isRabbitMQ()) style="display: none;" #end>
+			<th>virtualHost：</th>
+			<td>
+				<input id="sourceVirtualHost" name="$dataMediaSourceGroup.virtualHost.key" value="$!source.virtualHost" type="text" class="setting_input"/><span class="red">*</span>
+				<br />
+				<span class="red">#editDataSourceMessage ($dataMediaSourceGroup.virtualHost)</span>
+			</td>
+		</tr>
 	  #**
 	   <tr> 
         <th>StorePath：</th>
@@ -82,7 +91,7 @@ $control.setTemplate("home:navigation.vm")
 		</td>
       </tr>
 	  *#
-	  <tr> 
+	  <tr id="sourceEncodeTr" #if($source.type.isRabbitMQ()) style="display: none;" #end>
         <th>编码：</th>
         <td>
 			<select id="sourceEncode" name="$dataMediaSourceGroup.encode.key"  style="width:200px;" > 

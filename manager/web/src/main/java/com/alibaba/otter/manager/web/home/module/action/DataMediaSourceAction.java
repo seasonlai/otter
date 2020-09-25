@@ -32,6 +32,7 @@ import com.alibaba.otter.manager.web.common.WebConstant;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.db.DbMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.mq.MqMediaSource;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 
 public class DataMediaSourceAction extends AbstractAction {
 
@@ -74,6 +75,16 @@ public class DataMediaSourceAction extends AbstractAction {
 
             try {
                 dataMediaSourceService.create(mqMediaSource);
+            } catch (RepeatConfigureException rce) {
+                err.setMessage("invalidDataMediaSource");
+                return;
+            }
+        } else if (dataMediaSource.getType().isRabbitMQ()) {
+            RabbitMqMediaSource rabbitMqMediaSource = new RabbitMqMediaSource();
+            dataMediaSourceInfo.setProperties(rabbitMqMediaSource);
+            rabbitMqMediaSource.setVirtualHost(dataMediaSourceInfo.getField("virtualHost").getStringValue());
+            try {
+                dataMediaSourceService.create(rabbitMqMediaSource);
             } catch (RepeatConfigureException rce) {
                 err.setMessage("invalidDataMediaSource");
                 return;

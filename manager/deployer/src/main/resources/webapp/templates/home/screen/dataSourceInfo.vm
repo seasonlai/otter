@@ -15,12 +15,19 @@ $control.setTemplate("home:navigation.vm")
   <tr>
   <th>数据类型：</th><td>$!source.type</td>
   </tr>
+  #if (!$source.type == 'RABBITMQ')
   <tr>
   <th>编码：</th><td>$!source.encode</td>
   </tr>
+  #end
   <tr>
   <th>URL：</th><td>$!source.url</td>
   </tr>
+  #if ($source.type == 'RABBITMQ')
+  <tr>
+  <th>virtualHost：</th><td>$!source.virtualHost</td>
+  </tr>
+  #end
  </table>
  </div>
  

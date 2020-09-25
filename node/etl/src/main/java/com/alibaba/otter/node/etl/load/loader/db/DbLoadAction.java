@@ -25,13 +25,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.otter.shared.common.mq.RabbitMqSender;
+import com.alibaba.otter.shared.common.model.config.data.db.DbDataMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
+import com.alibaba.otter.shared.etl.model.*;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.ddlutils.model.Column;
@@ -75,15 +76,10 @@ import com.alibaba.otter.shared.common.model.config.data.DataMediaPair;
 import com.alibaba.otter.shared.common.model.config.data.db.DbMediaSource;
 import com.alibaba.otter.shared.common.model.config.pipeline.Pipeline;
 import com.alibaba.otter.shared.common.utils.thread.NamedThreadFactory;
-import com.alibaba.otter.shared.etl.model.EventColumn;
-import com.alibaba.otter.shared.etl.model.EventData;
-import com.alibaba.otter.shared.etl.model.EventType;
-import com.alibaba.otter.shared.etl.model.Identity;
-import com.alibaba.otter.shared.etl.model.RowBatch;
 
 /**
  * 数据库load的执行入口
- * 
+ *
  * @author jianghang 2011-10-31 下午03:17:43
  * @version 4.0.0
  */
@@ -131,37 +127,42 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
             datas = context.getPrepareDatas();
             // 处理下ddl语句，ddl/dml语句不可能是在同一个batch中，由canal进行控制
             // 主要考虑ddl的幂等性问题，尽可能一个ddl一个batch，失败或者回滚都只针对这条sql
-            if (isDdlDatas(datas)) {
-                doDdl(context, datas);
-            } else {
-                WeightBuckets<EventData> buckets = buildWeightBuckets(context, datas);
-                List<Long> weights = buckets.weights();
-                controller.start(weights);// weights可能为空，也得调用start方法
-                if (CollectionUtils.isEmpty(datas)) {
-                    logger.info("##no eventdata for load");
-                }
-                adjustPoolSize(context); // 根据manager配置调整线程池
-                adjustConfig(context); // 调整一下运行参数
-                // 按权重构建数据对象
-                // 处理数据
-                for (int i = 0; i < weights.size(); i++) {
-                    Long weight = weights.get(i);
-                    controller.await(weight.intValue());
-                    // 处理同一个weight下的数据
-                    List<EventData> items = buckets.getItems(weight);
-                    logger.debug("##start load for weight:" + weight);
-                    // 预处理下数据
+            DataMedia target = context.getPipeline().getPairs().get(0).getTarget();
+            if (target instanceof DbDataMedia) {
+                if (isDdlDatas(datas)) {
+                    doDdl(context, datas);
+                } else {
+                    WeightBuckets<EventData> buckets = buildWeightBuckets(context, datas);
+                    List<Long> weights = buckets.weights();
+                    controller.start(weights);// weights可能为空，也得调用start方法
+                    if (CollectionUtils.isEmpty(datas)) {
+                        logger.info("##no eventdata for load");
+                    }
+                    adjustPoolSize(context); // 根据manager配置调整线程池
+                    adjustConfig(context); // 调整一下运行参数
+                    // 按权重构建数据对象
+                    // 处理数据
+                    for (int i = 0; i < weights.size(); i++) {
+                        Long weight = weights.get(i);
+                        controller.await(weight.intValue());
+                        // 处理同一个weight下的数据
+                        List<EventData> items = buckets.getItems(weight);
+                        logger.debug("##start load for weight:" + weight);
+                        // 预处理下数据
 
-                    // 进行一次数据合并，合并相同pk的多次I/U/D操作
-                    items = DbLoadMerger.merge(items);
-                    // 按I/U/D进行归并处理
-                    DbLoadData loadData = new DbLoadData();
-                    doBefore(items, context, loadData);
-                    // 执行load操作
-                    doLoad(context, loadData);
-                    controller.single(weight.intValue());
-                    logger.debug("##end load for weight:" + weight);
+                        // 进行一次数据合并，合并相同pk的多次I/U/D操作
+                        items = DbLoadMerger.merge(items);
+                        // 按I/U/D进行归并处理
+                        DbLoadData loadData = new DbLoadData();
+                        doBefore(items, context, loadData);
+                        // 执行load操作
+                        doLoad(context, loadData);
+                        controller.single(weight.intValue());
+                        logger.debug("##end load for weight:" + weight);
+                    }
                 }
+            } else if (target instanceof RabbitMqMedia) {
+                doMQ(context, datas);
             }
             interceptor.commit(context);
         } catch (InterruptedException e) {
@@ -187,7 +188,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
 
     /**
      * 分析整个数据，将datas划分为多个批次. ddl sql前的DML并发执行，然后串行执行ddl后，再并发执行DML
-     * 
+     *
      * @return
      */
     private boolean isDdlDatas(List<EventData> eventDatas) {
@@ -201,6 +202,54 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
         }
 
         return result;
+    }
+
+    private void doMQ(DbLoadContext context, List<EventData> eventDatas) {
+        //TODO 并行发消息
+        for (DataMediaPair pair : context.getPipeline().getPairs()) {
+            final RabbitMqMedia target =  (RabbitMqMedia) pair.getTarget();
+            for (EventData eventData : eventDatas) {
+                RabbitMqSender sender = null;
+                try {
+                    final RabbitMqMediaSource source = target.getSource();
+                    sender = RabbitMqSender.getSender(source);
+                    sender.send(target.getNamespace(), target.getName(), JSONObject.toJSONString(tran2MaxwellData(eventData)));
+                    context.getProcessedDatas().add(eventData);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    context.getFailedDatas().add(eventData);
+                } finally {
+                    if (sender != null) {
+                        try {
+                            sender.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private MaxwellData tran2MaxwellData(EventData data){
+        MaxwellData maxwellData = new MaxwellData();
+        maxwellData.setCommit(true);
+        maxwellData.setDatabase(data.getSchemaName());
+        maxwellData.setTable(data.getTableName());
+        maxwellData.setType(data.getEventType().name().toLowerCase());
+        maxwellData.setTs(data.getExecuteTime());
+        maxwellData.setXid(0);
+        Map<String, Object> newData = new HashMap<String, Object>();
+        Map<String, Object> oldData = new HashMap<String, Object>();
+        for (EventColumn column : data.getMaxwellColumns()) {
+            newData.put(column.getColumnName(), column.getColumnValue());
+        }
+        for (EventColumn column : data.getOldMaxwellColumns()) {
+            oldData.put(column.getColumnName(), column.getColumnValue());
+        }
+        maxwellData.setData(newData);
+        maxwellData.setOld(oldData);
+        return maxwellData;
     }
 
     /**
@@ -343,7 +392,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
 
     /**
      * 执行ddl的调用，处理逻辑比较简单: 串行调用
-     * 
+     *
      * @param context
      * @param eventDatas
      */

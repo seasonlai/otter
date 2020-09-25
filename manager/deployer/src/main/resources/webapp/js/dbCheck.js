@@ -4,7 +4,8 @@ function check() {
     var sourcePassword = document.getElementById('sourcePassword').value;
     var sourceEncode = document.getElementById('sourceEncode').value;
     var sourceType = document.getElementById('sourceType').value;
-    Hello.check(sourceUrl, sourceUserName, sourcePassword, sourceEncode, sourceType, callback);  
+    var sourceVirtualHost = document.getElementById('sourceVirtualHost').value;
+    Hello.check(sourceUrl, sourceUserName, sourcePassword, sourceEncode, sourceType, sourceVirtualHost, callback);
 }  
 
 function checkMap() {  
@@ -37,4 +38,16 @@ function callback2(msg) {
 }
 
 function changeform(){
+    console.log("change form")
+    var sourceType = document.getElementById('sourceType').value;
+    var virtualHostTr = document.getElementById("virtualHostTr");
+    var sourceEncodeTr = document.getElementById("sourceEncodeTr");
+    if ("RABBITMQ" === sourceType) {
+        virtualHostTr.style.display = "table-row";
+        sourceEncodeTr.style.display = "none";
+    } else {
+        virtualHostTr.style.display = "none";
+        sourceEncodeTr.style.display = "table-row";
+    }
+
 }

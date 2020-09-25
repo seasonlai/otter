@@ -245,6 +245,11 @@
 					<message>必须填写${displayName}</message>
 				</fm-validators:required-validator>
 			</field>
+			<field name="virtualHost" displayName="虚拟主机">
+				<fm-validators:required-validator>
+					<message>必须填写${displayName}，可登录mq管理后台查看，如 /</message>
+				</fm-validators:required-validator>
+			</field>
 			<field name="encode" displayName="数据库编码">
 				<fm-validators:required-validator>
 					<message>必须选择${displayName}</message>

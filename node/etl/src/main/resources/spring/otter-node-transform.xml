@@ -13,4 +13,5 @@
 	</bean>
 	<bean id="rowDataTransformer" class="com.alibaba.otter.node.etl.transform.transformer.RowDataTransformer" />
 	<bean id="fileDataTransformer" class="com.alibaba.otter.node.etl.transform.transformer.FileDataTransformer" />
+	<bean id="rabbitMqTransformer" class="com.alibaba.otter.node.etl.transform.transformer.RabbitMqTransformer" />
 </beans>

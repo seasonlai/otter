@@ -23,6 +23,7 @@ import java.util.Map;
 
 import javax.sql.DataSource;
 
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
 import org.apache.ddlutils.model.Column;
 import org.apache.ddlutils.model.Table;
 import org.slf4j.Logger;
@@ -315,6 +316,9 @@ public class DataMediaServiceImpl implements DataMediaService {
                 dataMedia.setSource(dataMediaSource);
             } else if (dataMediaSource.getType().isNapoli() || dataMediaSource.getType().isMq()) {
                 dataMedia = JsonUtils.unmarshalFromString(dataMediaDo.getProperties(), MqDataMedia.class);
+                dataMedia.setSource(dataMediaSource);
+            } else if (dataMediaSource.getType().isRabbitMQ()) {
+                dataMedia = JsonUtils.unmarshalFromString(dataMediaDo.getProperties(), RabbitMqMedia.class);
                 dataMedia.setSource(dataMediaSource);
             }
 

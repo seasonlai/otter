@@ -140,7 +140,8 @@
         <appender-ref ref="WEBX-ROOT" />
     </logger>
     
-	<root level="WARN">
+	<root level="INFO">
+		<appender-ref ref="STDOUT" />
 		<appender-ref ref="WEBX-ROOT" />
 	</root>
 </configuration>

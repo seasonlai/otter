@@ -106,5 +106,6 @@ function changeKeyword(id, name, local) {
  </div>
   <input type="submit" name="submitKey" value="保存" class="button"></input>
   <input type="submit" name="submitKey" value="下一步" class="button"></input>
+	（如果是发送mq的话，直接保存即可）
  </form>
 </div>

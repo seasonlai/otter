@@ -113,6 +113,7 @@ $control.setTemplate("home:navigation.vm")
 	  <th width="14%">驱动</th>
 	  <th width="14%">编码</th>
       <th width="20%">URL</th>
+	  <th width="14%">virtualHost</th>
       <th width="20%">操作</th>
     </tr>
 	
@@ -122,8 +123,17 @@ $control.setTemplate("home:navigation.vm")
       <td width="12%">$!source.name</td>
       <td>$!source.type</td>
 	  <td>$!source.driver</td>
-	  <td>$!source.encode</td>
+		#if (!$source.type == 'RABBITMQ')
+	  		<td>$!source.encode</td>
+		#else
+			<td>--</td>
+		#end
       <td>$!source.url</td>
+		#if (!$source.type == 'RABBITMQ')
+			<td>--</td>
+		#else
+			<td>$!source.virtualHost</td>
+		#end
       <td>
 		<input type="button" value="选择" onclick="javascript:returnSelected('$source.id','$source.name')">
 	  </td>

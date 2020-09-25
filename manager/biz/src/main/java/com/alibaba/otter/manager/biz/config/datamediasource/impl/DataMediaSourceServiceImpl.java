@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -196,6 +198,8 @@ public class DataMediaSourceServiceImpl implements DataMediaSourceService {
                 dataMediaSourceDo.setProperties(JsonUtils.marshalToString((DbMediaSource) dataMediaSource));
             } else if (dataMediaSource instanceof MqMediaSource) {
                 dataMediaSourceDo.setProperties(JsonUtils.marshalToString((MqMediaSource) dataMediaSource));
+            } else if (dataMediaSource instanceof RabbitMqMediaSource){
+                dataMediaSourceDo.setProperties(JsonUtils.marshalToString((RabbitMqMediaSource) dataMediaSource));
             }
 
             dataMediaSourceDo.setGmtCreate(dataMediaSource.getGmtCreate());
@@ -222,6 +226,8 @@ public class DataMediaSourceServiceImpl implements DataMediaSourceService {
                 dataMediaSource = JsonUtils.unmarshalFromString(dataMediaSourceDo.getProperties(), DbMediaSource.class);
             } else if (dataMediaSourceDo.getType().isNapoli() || dataMediaSourceDo.getType().isMq()) {
                 dataMediaSource = JsonUtils.unmarshalFromString(dataMediaSourceDo.getProperties(), MqMediaSource.class);
+            } else if (dataMediaSourceDo.getType().isRabbitMQ()) {
+                dataMediaSource = JsonUtils.unmarshalFromString(dataMediaSourceDo.getProperties(), RabbitMqMediaSource.class);
             }
 
             dataMediaSource.setId(dataMediaSourceDo.getId());

@@ -37,7 +37,7 @@ function changeKeyword(id, name) {
             <span class="red">#addDataMediaMessage ($dataMediaGroup.formDataMediaError)</span>
         </tr>
       <tr> 
-        <th width="300">schema name：</th>
+        <th width="300">schema name or exchange：</th>
         <td width="329">
 			<input id="namespace" name="$dataMediaGroup.namespace.key" value="$!dataMediaGroup.namespace.value" type="text" class="setting_input"/><span class="red">*</span>
 			<br />
@@ -45,7 +45,7 @@ function changeKeyword(id, name) {
 		</td>
       </tr>
 	  <tr> 
-        <th width="300">table name：</th>
+        <th width="300">table name or route key：</th>
         <td width="329">
 			<input id="name" name="$dataMediaGroup.name.key" value="$!dataMediaGroup.name.value" type="text" class="setting_input"/><span class="red">*</span>
 			<br />

@@ -33,6 +33,8 @@ import com.alibaba.otter.shared.common.model.config.data.DataMedia;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.db.DbMediaSource;
 import com.alibaba.otter.shared.common.model.config.data.mq.MqMediaSource;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 
 public class DataSourceList {
 
@@ -77,6 +79,9 @@ public class DataSourceList {
             } else if (dataMediaSource instanceof MqMediaSource) {
                 seniorDataMediaSource.setUrl(((MqMediaSource) dataMediaSource).getUrl());
                 seniorDataMediaSource.setStorePath(((MqMediaSource) dataMediaSource).getStorePath());
+            } else if (dataMediaSource instanceof RabbitMqMediaSource) {
+                seniorDataMediaSource.setUrl(((RabbitMqMediaSource) dataMediaSource).getUrl());
+                seniorDataMediaSource.setVirtualHost(((RabbitMqMediaSource) dataMediaSource).getVirtualHost());
             }
             List<DataMedia> dataMedia = dataMediaService.listByDataMediaSourceId(dataMediaSource.getId());
             seniorDataMediaSource.setDataMedias(dataMedia);

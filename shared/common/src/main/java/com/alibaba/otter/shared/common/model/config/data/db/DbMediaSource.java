@@ -36,6 +36,7 @@ public class DbMediaSource extends DataMediaSource {
     private String            password;
     private String            driver;
     private Properties        properties;
+    private String            virtualHost;
 
     public String getUrl() {
         return url;
@@ -85,4 +86,11 @@ public class DbMediaSource extends DataMediaSource {
         this.properties = properties;
     }
 
+    public String getVirtualHost() {
+        return virtualHost;
+    }
+
+    public void setVirtualHost(String virtualHost) {
+        this.virtualHost = virtualHost;
+    }
 }

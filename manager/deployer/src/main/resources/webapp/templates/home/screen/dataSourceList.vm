@@ -41,6 +41,7 @@ $control.setTemplate("home:navigation.vm")
       <th>类型</th>
 	  <th>编码</th>
       <th>URL</th>
+      <th>virtualHost</th>
 	  <th>操作</th>
     </tr>
 	
@@ -49,9 +50,18 @@ $control.setTemplate("home:navigation.vm")
       <td width="5%">$!source.id</td>
       <td width="12%">$!source.name</td>
       <td>$!source.type</td>
-	  <td>$!source.encode</td>
+		#if ( $source.type == 'RABBITMQ')
+			<td>--</td>
+		#else
+			<td>$!source.encode</td>
+		#end
       <td>$!source.url</td>
-	  
+		#if ( $source.type == 'RABBITMQ')
+			<td>$!source.virtualHost</td>
+		#else
+			<td>--</td>
+		#end
+
 	  <td>
 		#set ($dataSourceInfoURL = $homeModule.setTarget("dataSourceInfo.vm").addQueryData("dataMediaSourceId", $source.id))
 		<a href="$dataSourceInfoURL"><img src="images/ico_edit.png" width="13" height="13" /><span class="ico_font">查看</span></a>

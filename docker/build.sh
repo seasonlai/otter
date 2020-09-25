@@ -22,6 +22,6 @@ else
     cd $BASE/../ && mvn clean package -Dmaven.test.skip -Denv=release && cd $current_path ;
     cp $BASE/../target/node.deployer-*.tar.gz $BASE/
     cp $BASE/../target/manager.deployer-*.tar.gz $BASE/
-    docker build --no-cache -t canal/otter-all $BASE/
+#    docker build --no-cache -t canal/otter-all $BASE/
 fi
 

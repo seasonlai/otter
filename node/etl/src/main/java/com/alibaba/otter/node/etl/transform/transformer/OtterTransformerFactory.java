@@ -26,13 +26,9 @@ import com.alibaba.otter.shared.common.model.config.ConfigHelper;
 import com.alibaba.otter.shared.common.model.config.data.DataMedia;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaPair;
 import com.alibaba.otter.shared.common.model.config.data.db.DbDataMedia;
+import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
 import com.alibaba.otter.shared.common.model.config.pipeline.Pipeline;
-import com.alibaba.otter.shared.etl.model.BatchObject;
-import com.alibaba.otter.shared.etl.model.EventData;
-import com.alibaba.otter.shared.etl.model.FileBatch;
-import com.alibaba.otter.shared.etl.model.FileData;
-import com.alibaba.otter.shared.etl.model.Identity;
-import com.alibaba.otter.shared.etl.model.RowBatch;
+import com.alibaba.otter.shared.etl.model.*;
 
 /**
  * 数据对象转化工厂
@@ -45,6 +41,7 @@ public class OtterTransformerFactory {
     private ConfigClientService configClientService;
     private RowDataTransformer  rowDataTransformer;
     private FileDataTransformer fileDataTransformer;
+    private RabbitMqTransformer rabbitMqTransformer;
 
     /**
      * 将一种源数据进行转化，最后得到的结果会根据DataMediaPair中定义的目标对象生成不同的数据对象 <br/>
@@ -140,6 +137,8 @@ public class OtterTransformerFactory {
             ((RowBatch) batchObject).merge((EventData) item);
         } else if (batchObject instanceof FileBatch) {
             ((FileBatch) batchObject).getFiles().add((FileData) item);
+        } else if (batchObject instanceof MaxwellBatch){
+            ((MaxwellBatch) batchObject).merge((MaxwellData) item);
         } else {
             throw new TransformException("no support Data[" + clazz.getName() + "]");
         }
@@ -155,6 +154,10 @@ public class OtterTransformerFactory {
             FileBatch fileBatch = new FileBatch();
             fileBatch.setIdentity(identity);
             return fileBatch;
+        } else if (MaxwellData.class.equals(clazz)){
+            MaxwellBatch maxwellBatch = new MaxwellBatch();
+            maxwellBatch.setIdentity(identity);
+            return maxwellBatch;
         } else {
             throw new TransformException("no support Data[" + clazz.getName() + "]");
         }
@@ -164,6 +167,8 @@ public class OtterTransformerFactory {
     private OtterTransformer lookup(DataMedia sourceDataMedia, DataMedia targetDataMedia) {
         if (sourceDataMedia instanceof DbDataMedia && targetDataMedia instanceof DbDataMedia) {
             return rowDataTransformer;
+        } else if (sourceDataMedia instanceof DbDataMedia && targetDataMedia instanceof RabbitMqMedia) {
+            return rabbitMqTransformer;
         }
 
         throw new TransformException("no support translate for source " + sourceDataMedia.toString() + " to target "
@@ -192,4 +197,7 @@ public class OtterTransformerFactory {
         this.fileDataTransformer = fileDataTransformer;
     }
 
+    public void setRabbitMqTransformer(RabbitMqTransformer rabbitMqTransformer) {
+        this.rabbitMqTransformer = rabbitMqTransformer;
+    }
 }
