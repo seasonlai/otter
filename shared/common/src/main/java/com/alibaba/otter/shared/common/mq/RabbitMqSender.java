@@ -4,10 +4,11 @@ import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +25,8 @@ public class RabbitMqSender {
 
     private Connection connection;
     private Channel channel;
+
+    private static final Logger logger = LoggerFactory.getLogger(RabbitMqSender.class);
 
     //TODO 或许要做LRU删除
     private static ConcurrentHashMap<RabbitMqMediaSource, RabbitMqSender> senderCache = new ConcurrentHashMap<RabbitMqMediaSource, RabbitMqSender>();
@@ -49,9 +52,9 @@ public class RabbitMqSender {
         if (sender == null) {
             final RabbitMqSender newSender = createNewSender(rabbitMqMediaSource);
             sender = senderCache.putIfAbsent(rabbitMqMediaSource, newSender);
-            if(sender != null){
+            if (sender != null) {
                 newSender.close();
-            }else {
+            } else {
                 sender = newSender;
             }
         }
@@ -63,6 +66,7 @@ public class RabbitMqSender {
     }
 
     public void send(String exchange, String routeKey, String message) throws IOException {
+        logger.debug("发送MQ：{}，{}", exchange, routeKey);
         channel.basicPublish(exchange, routeKey, null, message.getBytes(Charset.forName("utf8")));
     }
 

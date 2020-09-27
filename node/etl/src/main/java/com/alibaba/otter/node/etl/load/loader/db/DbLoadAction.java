@@ -28,10 +28,9 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.mq.RabbitMqSender;
-import com.alibaba.otter.shared.common.model.config.data.db.DbDataMedia;
 import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
-import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
 import com.alibaba.otter.shared.etl.model.*;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -120,15 +119,18 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
 
             // 因为所有的数据在DbBatchLoader已按照DateMediaSource进行归好类，不同数据源介质会有不同的DbLoadAction进行处理
             // 设置media source时，只需要取第一节点的source即可
-            context.setDataMediaSource(ConfigHelper.findDataMedia(context.getPipeline(), datas.get(0).getTableId())
-                .getSource());
+            final DataMedia<? extends DataMediaSource> target = ConfigHelper.findDataMedia(context.getPipeline(), datas.get(0).getTableId());
+            context.setDataMediaSource(target.getSource());
             interceptor.prepare(context);
             // 执行重复录入数据过滤
             datas = context.getPrepareDatas();
             // 处理下ddl语句，ddl/dml语句不可能是在同一个batch中，由canal进行控制
             // 主要考虑ddl的幂等性问题，尽可能一个ddl一个batch，失败或者回滚都只针对这条sql
-            DataMedia target = context.getPipeline().getPairs().get(0).getTarget();
-            if (target instanceof DbDataMedia) {
+            if (target instanceof RabbitMqMedia) {
+                logger.warn("mq同步");
+                doMQ(context, datas, (RabbitMqMedia)target);
+            } else {
+                logger.warn("数据库同步");
                 if (isDdlDatas(datas)) {
                     doDdl(context, datas);
                 } else {
@@ -161,8 +163,6 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
                         logger.debug("##end load for weight:" + weight);
                     }
                 }
-            } else if (target instanceof RabbitMqMedia) {
-                doMQ(context, datas);
             }
             interceptor.commit(context);
         } catch (InterruptedException e) {
@@ -204,29 +204,15 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
         return result;
     }
 
-    private void doMQ(DbLoadContext context, List<EventData> eventDatas) {
-        //TODO 并行发消息
-        for (DataMediaPair pair : context.getPipeline().getPairs()) {
-            final RabbitMqMedia target =  (RabbitMqMedia) pair.getTarget();
-            for (EventData eventData : eventDatas) {
-                RabbitMqSender sender = null;
-                try {
-                    final RabbitMqMediaSource source = target.getSource();
-                    sender = RabbitMqSender.getSender(source);
-                    sender.send(target.getNamespace(), target.getName(), JSONObject.toJSONString(tran2MaxwellData(eventData)));
-                    context.getProcessedDatas().add(eventData);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    context.getFailedDatas().add(eventData);
-                } finally {
-                    if (sender != null) {
-                        try {
-                            sender.close();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
+    private void doMQ(DbLoadContext context, List<EventData> eventDatas, RabbitMqMedia target) {
+        for (EventData eventData : eventDatas) {
+            try {
+                RabbitMqSender.getSender(target.getSource()).send(target.getNamespace(), target.getName(),
+                        JSONObject.toJSONString(tran2MaxwellData(eventData)));
+                context.getProcessedDatas().add(eventData);
+            } catch (Exception e) {
+                e.printStackTrace();
+                context.getFailedDatas().add(eventData);
             }
         }
     }

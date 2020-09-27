@@ -14,6 +14,10 @@ public class RabbitMqTransformer implements OtterTransformer<EventData, EventDat
         if(data.getEventType().isDdl()){
             return null;
         }
-        return data;
+        final EventData result = data.clone();
+        // 处理Table转化
+        result.setPairId(context.getDataMediaPair().getId());
+        result.setTableId(context.getDataMediaPair().getTarget().getId());
+        return result;
     }
 }

@@ -331,6 +331,8 @@ public class EventData implements ObjectData, Serializable {
         data.setKeys(cloneColumn(keys));
         data.setColumns(cloneColumn(columns));
         data.setOldKeys(cloneColumn(oldKeys));
+        data.setMaxwellColumns(cloneColumn(maxwellColumns));
+        data.setOldMaxwellColumns(cloneColumn(oldMaxwellColumns));
         data.setSize(size);
         data.setPairId(pairId);
         data.setSql(sql);

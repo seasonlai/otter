@@ -72,7 +72,7 @@ $control.setTemplate("home:navigation.vm")
         <tr id="virtualHostTr" style="display: none;">
             <th>virtualHost：</th>
             <td>
-                <input id="sourceVirtualHost" name="$dataMediaSourceGroup.virtualHost.key" value="$!dataMediaSourceGroup.virtualHost.value" type="text" class="setting_input"/><span class="red">*</span>
+                <input id="sourceVirtualHost" name="$dataMediaSourceGroup.virtualHost.key" value="/" type="text" class="setting_input"/><span class="red">*</span>
                 <br />
                 <span class="red">#addDataSourceMessage ($dataMediaSourceGroup.virtualHost)</span>
             </td>
