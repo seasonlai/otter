@@ -20,11 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 
 import com.alibaba.fastjson.JSONObject;
@@ -127,10 +123,15 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
             // 处理下ddl语句，ddl/dml语句不可能是在同一个batch中，由canal进行控制
             // 主要考虑ddl的幂等性问题，尽可能一个ddl一个batch，失败或者回滚都只针对这条sql
             if (target instanceof RabbitMqMedia) {
-                logger.warn("mq同步");
+                logger.info("mq同步");
+                long weight = 10L;
+                controller.start(Collections.singletonList(weight));// weights可能为空，也得调用start方法
+                controller.await((int) weight);
                 doMQ(context, datas, (RabbitMqMedia)target);
+                controller.single(weight);// weights可能为空，也得调用start方法
+                logger.info("mq同步完成");
             } else {
-                logger.warn("数据库同步");
+                logger.info("数据库同步");
                 if (isDdlDatas(datas)) {
                     doDdl(context, datas);
                 } else {
@@ -163,6 +164,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
                         logger.debug("##end load for weight:" + weight);
                     }
                 }
+                logger.info("数据库同步完成");
             }
             interceptor.commit(context);
         } catch (InterruptedException e) {

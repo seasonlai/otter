@@ -64,7 +64,7 @@ public class WeightBarrier {
     public void await(long weight) throws InterruptedException {
         try {
             lock.lockInterruptibly();
-            while (isPermit(weight) == false) {
+            while (!isPermit(weight)) {
                 condition.await();
             }
         } finally {
