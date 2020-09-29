@@ -1,6 +1,7 @@
 package com.alibaba.otter.shared.common.mq;
 
 import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMediaSource;
+import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -9,9 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedList;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -21,64 +20,171 @@ import java.util.concurrent.TimeoutException;
  */
 public class RabbitMqSender {
 
-    private RabbitMqMediaSource rabbitMqMediaSource;
-
-    private Connection connection;
-    private Channel channel;
-
     private static final Logger logger = LoggerFactory.getLogger(RabbitMqSender.class);
 
-    //TODO 或许要做LRU删除
-    private static ConcurrentHashMap<RabbitMqMediaSource, RabbitMqSender> senderCache = new ConcurrentHashMap<RabbitMqMediaSource, RabbitMqSender>();
+    private ConnectionFactory connectionFactory;
+    private volatile Connection connection;
+    private boolean keepAlive;
 
-    private RabbitMqSender(RabbitMqMediaSource rabbitMqMediaSource) throws IOException, TimeoutException {
+
+    private final LinkedList<Channel> channelPool = new LinkedList<Channel>();
+    private static final int CHANNEL_POOL_SIZE = 25;
+
+    /**
+     * 操作连接时要先获得锁
+     */
+    private final Object connectionMonitor = new Object();
+
+    public RabbitMqSender(RabbitMqMediaSource rabbitMqMediaSource) {
+        this(rabbitMqMediaSource, false);
+    }
+
+    public RabbitMqSender(RabbitMqMediaSource rabbitMqMediaSource, boolean keepAlive) {
         assert rabbitMqMediaSource != null;
-        this.rabbitMqMediaSource = rabbitMqMediaSource;
-
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setUsername(rabbitMqMediaSource.getUsername());
-        factory.setPassword(rabbitMqMediaSource.getPassword());
+        this.connectionFactory = new ConnectionFactory();
+        connectionFactory.setUsername(rabbitMqMediaSource.getUsername());
+        connectionFactory.setPassword(rabbitMqMediaSource.getPassword());
         final String[] address = rabbitMqMediaSource.getUrl().split(":");
-        factory.setHost(address[0]);
-        factory.setPort(Integer.parseInt(address[1]));
-        factory.setVirtualHost(rabbitMqMediaSource.getVirtualHost());
+        connectionFactory.setHost(address[0]);
+        connectionFactory.setPort(Integer.parseInt(address[1]));
+        connectionFactory.setVirtualHost(rabbitMqMediaSource.getVirtualHost());
 
-        this.connection = factory.newConnection();
-        this.channel = connection.createChannel();
+        this.keepAlive = keepAlive;
     }
 
-    public static RabbitMqSender getSender(RabbitMqMediaSource rabbitMqMediaSource) throws Exception {
-        RabbitMqSender sender = senderCache.get(rabbitMqMediaSource);
-        if (sender == null) {
-            final RabbitMqSender newSender = createNewSender(rabbitMqMediaSource);
-            sender = senderCache.putIfAbsent(rabbitMqMediaSource, newSender);
-            if (sender != null) {
-                newSender.close();
-            } else {
-                sender = newSender;
-            }
-        }
-        return sender;
-    }
-
-    public static RabbitMqSender createNewSender(RabbitMqMediaSource rabbitMqMediaSource) throws Exception {
+    public static RabbitMqSender createNewSender(RabbitMqMediaSource rabbitMqMediaSource) {
         return new RabbitMqSender(rabbitMqMediaSource);
     }
 
-    public void send(String exchange, String routeKey, String message) throws IOException {
-        logger.debug("发送MQ：{}，{}", exchange, routeKey);
-        channel.basicPublish(exchange, routeKey, null, message.getBytes(Charset.forName("utf8")));
+    public void check() {
+        if (connection == null || !connection.isOpen()) {
+            synchronized (connectionMonitor) {
+                if (connection == null || !connection.isOpen()) {
+                    try {
+                        connection = connectionFactory.newConnection();
+                    } catch (IOException e) {
+                        throw new RuntimeException("连接MQ失败", e);
+                    } catch (TimeoutException e) {
+                        throw new RuntimeException("连接MQ超时", e);
+                    }
+                }
+            }
+        }
+        if (!keepAlive) {
+            try {
+                if (connection != null)
+                    connection.close();
+            } catch (Exception e) {
+                //
+            }
+        }
     }
 
-    public void close() throws Exception {
-        channel.close();
-        connection.close();
-        for (Iterator<Map.Entry<RabbitMqMediaSource, RabbitMqSender>> it = senderCache.entrySet().iterator(); it.hasNext(); ) {
-            final Map.Entry<RabbitMqMediaSource, RabbitMqSender> next = it.next();
-            if (this == next.getValue()) {
-                it.remove();
-                break;
+    public void send(String exchange, String routeKey, String message) throws IOException {
+        final Channel channel = getChannel();
+        try {
+            channel.basicPublish(exchange, routeKey, null, message.getBytes(Charset.forName("utf8")));
+            logger.debug("发送了MQ：{}，{}", exchange, routeKey);
+        } finally {
+            close(channel);
+        }
+    }
+
+    private Channel getChannel() {
+        Channel channel = null;
+        if (connection != null && connection.isOpen()) { //先从缓存池找
+            channel = findOpenChannel();
+        }
+        if (channel == null) { //从连接创建
+            if (connection == null || !connection.isOpen()) {
+                synchronized (connectionMonitor) {
+                    if (connection == null || !connection.isOpen()) {
+                        try {
+                            channelPool.clear();
+                            connection = connectionFactory.newConnection();
+                        } catch (IOException e) {
+                            throw new RuntimeException("连接MQ失败", e);
+                        } catch (TimeoutException e) {
+                            throw new RuntimeException("连接MQ超时", e);
+                        }
+                    }
+                }
             }
+            try {
+                channel = connection.createChannel();
+            } catch (IOException e) {
+                throw new RuntimeException("创建channel失败", e);
+            }
+        }
+        return channel;
+    }
+
+
+    private Channel findOpenChannel() {
+        Channel channel = null;
+        synchronized (channelPool) {
+            while (!channelPool.isEmpty()) {
+                channel = channelPool.removeFirst();
+                if (channel.isOpen()) {
+                    break;
+                }
+            }
+        }
+        return channel;
+    }
+
+    private void close(Channel channel) {
+        if (keepAlive) { //保持连接，放回channel池
+            if ((channel != null && !channel.isOpen()) || channelPool.size() >= CHANNEL_POOL_SIZE) {
+                try {
+                    if (channel != null)
+                        channel.close();
+                } catch (Exception e) {
+                    //
+                }
+                return;
+            }
+            channelPool.addLast(channel);
+        } else {
+            try {
+                if (channel != null)
+                    channel.close();
+            } catch (AlreadyClosedException e) {
+                //
+            } catch (IOException e) {
+                logger.warn("关闭通道失败", e);
+            } catch (TimeoutException e) {
+                logger.warn("关闭通道超时", e);
+            }
+            try {
+                if (connection != null)
+                    connection.close();
+            } catch (AlreadyClosedException e) {
+                //
+            } catch (IOException e) {
+                logger.warn("关闭连接失败", e);
+            }
+        }
+    }
+
+    public void destroy() {
+        while (channelPool.size() > 0) {
+            final Channel channel = channelPool.removeFirst();
+            try {
+                channel.close();
+            } catch (AlreadyClosedException e) {
+                //
+            } catch (Exception e) {
+                logger.warn("关闭通道失败", e);
+            }
+        }
+        try {
+            if (connection != null)
+                connection.close();
+        } catch (AlreadyClosedException e) {
+            //
+        } catch (IOException e) {
+            logger.warn("关闭连接失败", e);
         }
     }
 }

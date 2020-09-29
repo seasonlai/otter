@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.otter.node.etl.common.mq.RabbitMqSenderFactory;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.mq.RabbitMqSender;
 import com.alibaba.otter.shared.common.model.config.data.mq.RabbitMqMedia;
@@ -94,6 +95,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
     private int                 batchSize          = 50;
     private boolean             useBatch           = true;
     private LoadStatsTracker    loadStatsTracker;
+    private RabbitMqSenderFactory rabbitMqSenderFactory;
 
     /**
      * 返回结果为已处理成功的记录
@@ -209,7 +211,8 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
     private void doMQ(DbLoadContext context, List<EventData> eventDatas, RabbitMqMedia target) {
         for (EventData eventData : eventDatas) {
             try {
-                RabbitMqSender.getSender(target.getSource()).send(target.getNamespace(), target.getName(),
+                final RabbitMqSender sender = rabbitMqSenderFactory.getSender(context.getPipeline().getId(), target.getSource());
+                sender.send(target.getNamespace(), target.getName(),
                         JSONObject.toJSONString(tran2MaxwellData(eventData)));
                 context.getProcessedDatas().add(eventData);
             } catch (Exception e) {
@@ -936,6 +939,10 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
 
     public void setConfigClientService(ConfigClientService configClientService) {
         this.configClientService = configClientService;
+    }
+
+    public void setRabbitMqSenderFactory(RabbitMqSenderFactory rabbitMqSenderFactory) {
+        this.rabbitMqSenderFactory = rabbitMqSenderFactory;
     }
 
     public void setLoadStatsTracker(LoadStatsTracker loadStatsTracker) {

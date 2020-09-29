@@ -51,7 +51,7 @@ $control.setTemplate("home:navigation.vm")
       <td width="12%">$!source.name</td>
       <td>$!source.type</td>
 		#if ( $source.type == 'RABBITMQ')
-			<td>--</td>
+			<td></td>
 		#else
 			<td>$!source.encode</td>
 		#end
@@ -59,7 +59,7 @@ $control.setTemplate("home:navigation.vm")
 		#if ( $source.type == 'RABBITMQ')
 			<td>$!source.virtualHost</td>
 		#else
-			<td>--</td>
+			<td></td>
 		#end
 
 	  <td>

@@ -10,6 +10,7 @@
 	<bean id="otterTransformerFactory" class="com.alibaba.otter.node.etl.transform.transformer.OtterTransformerFactory">
 		<property name="rowDataTransformer" ref="rowDataTransformer" />
 		<property name="fileDataTransformer" ref="fileDataTransformer" />
+		<property name="rabbitMqTransformer" ref="rabbitMqTransformer" />
 	</bean>
 	<bean id="rowDataTransformer" class="com.alibaba.otter.node.etl.transform.transformer.RowDataTransformer" />
 	<bean id="fileDataTransformer" class="com.alibaba.otter.node.etl.transform.transformer.FileDataTransformer" />

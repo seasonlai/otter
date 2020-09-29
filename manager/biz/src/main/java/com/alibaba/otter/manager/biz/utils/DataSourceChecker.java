@@ -62,12 +62,18 @@ public class DataSourceChecker {
     // 选择的数据库类型和jdbc-url不匹配
     // private static final String DBTYPE_CONFLICT =
     // "\u9009\u62e9\u7684\u6570\u636e\u5e93\u7c7b\u578b\u548cjdbc-url\u4e0d\u5339\u914d";
+    // 恭喜,MQ通过验证!
+    private static final String    MQ_SUCCESS   = "\u606d\u559c,MQ\u901a\u8fc7\u9a8c\u8bc1!";
     // 恭喜,数据库通过验证!
     private static final String    DATABASE_SUCCESS   = "\u606d\u559c,\u6570\u636e\u5e93\u901a\u8fc7\u9a8c\u8bc1!";
     // 抱歉,数据库未通过验证,请检查相关配置!
     private static final String    DATABASE_FAIL      = "\u62b1\u6b49,\u6570\u636e\u5e93\u672a\u901a\u8fc7\u9a8c\u8bc1,\u8bf7\u68c0\u67e5\u76f8\u5173\u914d\u7f6e!";
+    // 抱歉,MQ未通过验证,请检查相关配置!
+    private static final String    MQ_FAIL      = "\u62b1\u6b49,MQ\u672a\u901a\u8fc7\u9a8c\u8bc1,\u8bf7\u68c0\u67e5\u76f8\u5173\u914d\u7f6e!";
     // 恭喜,select操作成功,权限正常!
     private static final String    TABLE_SUCCESS      = "\u606d\u559c,select\u64cd\u4f5c\u6210\u529f,\u6743\u9650\u6b63\u5e38!";
+    // 记得在mq上配好exchange、queue，然后把它们绑定
+    private static final String    EXCHANGE_SUCCESS      = "\u8BB0\u5F97\u5728mq\u4E0A\u914D\u597Dexchange\u3001queue\uFF0C\u7136\u540E\u628A\u5B83\u4EEC\u7ED1\u5B9A";
     // 抱歉select操作报错,请检查权限配置!
     private static final String    TABLE_FAIL         = "\u62b1\u6b49,\u64cd\u4f5c\u62a5\u9519,\u8bf7\u68c0\u67e5\u6743\u9650\u914d\u7f6e!";
     // 恭喜,编码验证正确!
@@ -123,29 +129,20 @@ public class DataSourceChecker {
 
     public String checkMQ(String url, String username, String password, String sourceVirtualHost) {
         if (StringUtils.isEmpty(url) || !url.contains(":")) {
-            return DATABASE_FAIL;
-        } else { //TODO 检查mq连接
+            return MQ_FAIL;
+        } else {
             final RabbitMqMediaSource rabbitMqMediaSource = new RabbitMqMediaSource();
             rabbitMqMediaSource.setUrl(url);
             rabbitMqMediaSource.setVirtualHost(sourceVirtualHost);
             rabbitMqMediaSource.setUsername(username);
             rabbitMqMediaSource.setPassword(password);
-            RabbitMqSender sender = null;
             try {
-                sender = RabbitMqSender.createNewSender(rabbitMqMediaSource);
-            }catch (Exception e){
-                e.printStackTrace();
-                return DATABASE_FAIL;
-            } finally {
-                if(sender!=null) {
-                    try {
-                        sender.close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
+                RabbitMqSender.createNewSender(rabbitMqMediaSource).check();
+            } catch (Exception e) {
+                logger.error("检查MQ配置出错: ", e);
+                return MQ_FAIL;
             }
-            return DATABASE_SUCCESS;
+            return MQ_SUCCESS;
         }
     }
 
@@ -240,24 +237,13 @@ public class DataSourceChecker {
     }
 
     public String checkMap(String namespace, String name, Long dataSourceId) {
-        DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
-        if (source.getType().isMysql() || source.getType().isOracle()) {
-            return checkMapDB(namespace, name, dataSourceId);
-        } else if (source.getType().isRabbitMQ()) {
-            return checkMapMQ(namespace, name, dataSourceId);
-        } else {
-            return TABLE_SUCCESS;
-        }
-    }
-
-    public String checkMapMQ(String namespace, String name, Long dataSourceId) {
-        return TABLE_SUCCESS;
-    }
-
-    public String checkMapDB(String namespace, String name, Long dataSourceId) {
         Connection conn = null;
         Statement stmt = null;
         DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
+        if (source.getType().isRabbitMQ()) {
+            return EXCHANGE_SUCCESS;
+        }
+
         DataSource dataSource = null;
         try {
             DbMediaSource dbMediaSource = (DbMediaSource) source;
@@ -329,6 +315,9 @@ public class DataSourceChecker {
         DataSource dataSource = null;
         try {
             DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
+            if (source.getType().isRabbitMQ()) {
+                return EXCHANGE_SUCCESS;
+            }
             DbMediaSource dbMediaSource = (DbMediaSource) source;
             dataSource = dataSourceCreator.createDataSource(dbMediaSource);
             JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);

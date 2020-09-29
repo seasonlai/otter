@@ -16,7 +16,11 @@
 		<property name="defaultLobHandler" ref="defaultLobHandler" />
 		<property name="oracleLobHandler" ref="oracleLobHandler" />
 	</bean>
-	
+
+	<!-- mq-factory -->
+	<bean id="rabbitMqSenderFactory" class="com.alibaba.otter.node.etl.common.mq.RabbitMqSenderFactory">
+	</bean>
+
 	<!--  lob bean -->
 	<bean id="defaultLobHandler" class="org.springframework.jdbc.support.lob.DefaultLobHandler">
 		<property name="streamAsLob" value="true" />
