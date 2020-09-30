@@ -3,16 +3,24 @@ $control.setTemplate("home:navigation.vm")
 <!--
 	changeNav("sync");
 //-->
-function changeKeyword(id, name, local) {
+function changeKeyword(id, name, local, isRabbitMQ) {
 	if(local == 'source'){
     	if( document.getElementById("sourceDataMediaId") && document.getElementById("sourceDataMediaName")){
     		document.getElementById('sourceDataMediaId').value = id;
-        	document.getElementById('sourceDataMediaName').value = name;
+        	document.getElementById('sourceDataMediaName').value = isRabbitMQ == 'true'?"只能选mysql，请重新选择":name;
+			document.getElementById("nextStep").style.display = isRabbitMQ == 'true'?'none':'inline-block';
+			document.getElementById("saveConfig").style.display = isRabbitMQ == 'true'?'none':'inline-block';
     	}
 	}else{
 		if( document.getElementById("targetDataMediaId") && document.getElementById("targetDataMediaName")){
     		document.getElementById('targetDataMediaId').value = id;
         	document.getElementById('targetDataMediaName').value = name;
+			var x = document.getElementsByClassName("dbsource");
+			var i;
+			for (i = 0; i < x.length; i++) {
+				x[i].style.display = isRabbitMQ == 'true'?'none':'table-row';
+			}
+			document.getElementById("nextStep").style.display = isRabbitMQ == 'true'?'none':'inline-block';
     	}
 	}
 }
@@ -39,7 +47,7 @@ function changeKeyword(id, name, local) {
     <table cellpadding="0" cellspacing="0" class="setting setting_otter">
 		<span class="red">#addDataMediaPairMessage ($dataMediaPairGroup.formDataMediaPairError)</span>
 	  <tr> 
-        <th>源数据表：</th>
+        <th>源数据源：</th>
         <td>
 			<input id="sourceDataMediaName" type="text" name="$dataMediaPairGroup.sourceDataMediaName.key" value="$!dataMediaPairGroup.sourceDataMediaName.value" class="setting_input" readonly />
 			<input id="sourceDataMediaId" name="$dataMediaPairGroup.sourceDataMediaId.key" value="$!dataMediaPairGroup.sourceDataMediaId.value" type="hidden" class="setting_input"  />
@@ -49,7 +57,7 @@ function changeKeyword(id, name, local) {
 		</td>
       </tr>
 	  <tr> 
-        <th>目标数据表：</th>
+        <th>目标数据源：</th>
         <td>
 			<input id="targetDataMediaName" type="text" name="$dataMediaPairGroup.targetDataMediaName.key" value="$!dataMediaPairGroup.targetDataMediaName.value" class="setting_input" readonly />
 			<input id="targetDataMediaId" name="$dataMediaPairGroup.targetDataMediaId.key" value="$!dataMediaPairGroup.targetDataMediaId.value" type="hidden" class="setting_input"  />
@@ -58,7 +66,7 @@ function changeKeyword(id, name, local) {
 			<span class="red">#addDataMediaPairMessage ($dataMediaPairGroup.targetDataMediaId)</span>
 		</td>
       </tr>
-      <tr>
+      <tr class="dbsource">
         <th>权重:</th>
         <td>
           <input type="text" name="$dataMediaPairGroup.pushWeight.key" value="5" id="textfield5" /><span class="red">*</span>
@@ -66,7 +74,7 @@ function changeKeyword(id, name, local) {
 		  <span class="red">#addDataMediaPairMessage ($dataMediaPairGroup.pushWeight)</span>
         </td>
       </tr>
-	  <tr>
+	  <tr class="dbsource">
         <th>视图模式:</th>
         <td>
 		  <input type="radio" name="$dataMediaPairGroup.columnPairMode.key" value="INCLUDE" id="RadioGroup2_0" checked="checked" class="radio"/>include
@@ -75,7 +83,7 @@ function changeKeyword(id, name, local) {
 		  <span class="red">#addDataMediaPairMessage ($dataMediaPairGroup.columnPairMode)</span>
         </td>
       </tr>
-      <tr>
+      <tr class="dbsource">
         <th>EventProcessor类型:</th>
         <td>
 			<select name="$dataMediaPairGroup.filterType.key" id="select">
@@ -84,11 +92,11 @@ function changeKeyword(id, name, local) {
             </select><span class="red">*</span>
         </td>
       </tr>
-	  <tr>
+	  <tr class="dbsource">
         <th>EventProcessor文本:</th>
             <td><textarea cols="90" rows="10" name="$dataMediaPairGroup.filterText.key">$!dataMediaPairGroup.filterText.value</textarea></td>
       </tr>
-	  <tr>
+	  <tr class="dbsource">
         <th>FileResolver类型:</th>
 		<td>
         <select name="$dataMediaPairGroup.resolverType.key" id="select">
@@ -97,15 +105,14 @@ function changeKeyword(id, name, local) {
             </select><span class="red">*</span>
 		</td>	
       </tr>
-      <tr>
+      <tr class="dbsource">
         <th>FileResolver文本:</th>
             <td><textarea cols="90" rows="10" name="$dataMediaPairGroup.resolverText.key">$!dataMediaPairGroup.resolverText.value</textarea></td>
       </tr>
     </table>
  </div>
-  <input type="submit" name="submitKey" value="保存" class="button"></input>
-  <input type="submit" name="submitKey" value="下一步" class="button"></input>
-	 <span>（如果同步是mq，直接点保存就好）</span>
+  <input type="submit" name="submitKey" value="保存" class="button" id="saveConfig"></input>
+  <input type="submit" name="submitKey" value="下一步" class="button" id="nextStep"></input>
  </form>
 </div>
 

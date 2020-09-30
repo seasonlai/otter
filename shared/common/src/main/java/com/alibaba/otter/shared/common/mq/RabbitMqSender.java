@@ -56,11 +56,33 @@ public class RabbitMqSender {
         return new RabbitMqSender(rabbitMqMediaSource);
     }
 
-    public void check() {
+    public void checkConnect() {
+        initConnect();
+        if (!keepAlive) {
+            close(null);
+        }
+    }
+
+
+    public void checkExchange(String exchange) {
+        final Channel channel = getChannel();
+        try {
+            channel.exchangeDeclarePassive(exchange);
+        } catch (Exception e) {
+            throw new RuntimeException("exchage：" + exchange + "不存在");
+        }
+        if (!keepAlive) {
+            close(channel);
+        }
+    }
+
+
+    private void initConnect() {
         if (connection == null || !connection.isOpen()) {
             synchronized (connectionMonitor) {
                 if (connection == null || !connection.isOpen()) {
                     try {
+                        channelPool.clear();
                         connection = connectionFactory.newConnection();
                     } catch (IOException e) {
                         throw new RuntimeException("连接MQ失败", e);
@@ -68,14 +90,6 @@ public class RabbitMqSender {
                         throw new RuntimeException("连接MQ超时", e);
                     }
                 }
-            }
-        }
-        if (!keepAlive) {
-            try {
-                if (connection != null)
-                    connection.close();
-            } catch (Exception e) {
-                //
             }
         }
     }
@@ -96,20 +110,7 @@ public class RabbitMqSender {
             channel = findOpenChannel();
         }
         if (channel == null) { //从连接创建
-            if (connection == null || !connection.isOpen()) {
-                synchronized (connectionMonitor) {
-                    if (connection == null || !connection.isOpen()) {
-                        try {
-                            channelPool.clear();
-                            connection = connectionFactory.newConnection();
-                        } catch (IOException e) {
-                            throw new RuntimeException("连接MQ失败", e);
-                        } catch (TimeoutException e) {
-                            throw new RuntimeException("连接MQ超时", e);
-                        }
-                    }
-                }
-            }
+            initConnect();
             try {
                 channel = connection.createChannel();
             } catch (IOException e) {
@@ -183,7 +184,7 @@ public class RabbitMqSender {
                 connection.close();
         } catch (AlreadyClosedException e) {
             //
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.warn("关闭连接失败", e);
         }
     }

@@ -5,9 +5,9 @@ $control.setTemplate("home:navigation.vm")
 <script type="text/javascript" src="js/jquery.simplemodal-1.4.js"></script> 
 <script language="javascript">
 	changeNav("sync");
-	function returnSelected(keywordId, keyword, local) {
+	function returnSelected(keywordId, keyword, local, isRabbitMQ) {
 		if(window.opener && !window.opener.closed){
-			window.opener.changeKeyword(keywordId, keyword, local);
+			window.opener.changeKeyword(keywordId, keyword, local, isRabbitMQ);
 		}
 		window.close();
 	}
@@ -60,7 +60,7 @@ $control.setTemplate("home:navigation.vm")
 		<a href="$dataSourceInfoURL">$!dataMedia.source.name</a>
 	  </td>
 	  <td>
-		<input type="button" value="选择" onclick="javascript:returnSelected('$dataMedia.id','$dataMedia.name','$local')">
+		<input type="button" value="选择" onclick="javascript:returnSelected('$dataMedia.id','$dataMedia.name','$local', '$dataMedia.source.type.rabbitMQ')">
       </td>
 	  
     </tr>

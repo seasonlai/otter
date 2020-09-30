@@ -72,8 +72,10 @@ public class DataSourceChecker {
     private static final String    MQ_FAIL      = "\u62b1\u6b49,MQ\u672a\u901a\u8fc7\u9a8c\u8bc1,\u8bf7\u68c0\u67e5\u76f8\u5173\u914d\u7f6e!";
     // 恭喜,select操作成功,权限正常!
     private static final String    TABLE_SUCCESS      = "\u606d\u559c,select\u64cd\u4f5c\u6210\u529f,\u6743\u9650\u6b63\u5e38!";
-    // 记得在mq上配好exchange、queue，然后把它们绑定
-    private static final String    EXCHANGE_SUCCESS      = "\u8BB0\u5F97\u5728mq\u4E0A\u914D\u597Dexchange\u3001queue\uFF0C\u7136\u540E\u628A\u5B83\u4EEC\u7ED1\u5B9A";
+    // exchange验证失败，请检查是否已在mq上配好exchange
+    private static final String    EXCHANGE_FAIL      = "exchange\u9A8C\u8BC1\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u662F\u5426\u5DF2\u5728mq\u4E0A\u914D\u597Dexchange";
+    // exchange验证通过，记得在mq上也配好queue，然后将它们绑定
+    private static final String    EXCHANGE_SUCCESS      = "exchange\u9A8C\u8BC1\u901A\u8FC7\uFF0C\u8BB0\u5F97\u5728mq\u4E0A\u4E5F\u914D\u597Dqueue\uFF0C\u7136\u540E\u5C06\u5B83\u4EEC\u7ED1\u5B9A";
     // 抱歉select操作报错,请检查权限配置!
     private static final String    TABLE_FAIL         = "\u62b1\u6b49,\u64cd\u4f5c\u62a5\u9519,\u8bf7\u68c0\u67e5\u6743\u9650\u914d\u7f6e!";
     // 恭喜,编码验证正确!
@@ -137,7 +139,7 @@ public class DataSourceChecker {
             rabbitMqMediaSource.setUsername(username);
             rabbitMqMediaSource.setPassword(password);
             try {
-                RabbitMqSender.createNewSender(rabbitMqMediaSource).check();
+                RabbitMqSender.createNewSender(rabbitMqMediaSource).checkConnect();
             } catch (Exception e) {
                 logger.error("检查MQ配置出错: ", e);
                 return MQ_FAIL;
@@ -241,6 +243,12 @@ public class DataSourceChecker {
         Statement stmt = null;
         DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
         if (source.getType().isRabbitMQ()) {
+            try {
+                RabbitMqSender.createNewSender((RabbitMqMediaSource) source).checkExchange(namespace);
+            }catch (Exception e){
+                logger.error("检查MQ的exchange配置出错: ", e);
+                return EXCHANGE_FAIL;
+            }
             return EXCHANGE_SUCCESS;
         }
 
@@ -316,6 +324,12 @@ public class DataSourceChecker {
         try {
             DataMediaSource source = dataMediaSourceService.findById(dataSourceId);
             if (source.getType().isRabbitMQ()) {
+                try {
+                    RabbitMqSender.createNewSender((RabbitMqMediaSource) source).checkExchange(namespace);
+                }catch (Exception e){
+                    logger.error("检查MQ的exchange配置出错: ", e);
+                    return EXCHANGE_FAIL;
+                }
                 return EXCHANGE_SUCCESS;
             }
             DbMediaSource dbMediaSource = (DbMediaSource) source;
