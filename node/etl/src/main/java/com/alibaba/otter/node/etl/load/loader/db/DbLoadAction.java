@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.otter.node.etl.common.mq.RabbitMqSenderFactory;
 import com.alibaba.otter.shared.common.model.config.data.DataMediaSource;
 import com.alibaba.otter.shared.common.mq.RabbitMqSender;
@@ -213,8 +214,9 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
             try {
                 final RabbitMqSender sender = rabbitMqSenderFactory.getSender(context.getPipeline().getId(), target.getSource());
                 sender.send(target.getNamespace(), target.getName(),
-                        JSONObject.toJSONString(tran2MaxwellData(eventData)));
+                        JSONObject.toJSONString(tran2MaxwellData(eventData), SerializerFeature.WriteMapNullValue, SerializerFeature.WriteNullListAsEmpty));
                 context.getProcessedDatas().add(eventData);
+                processStat(eventData, context);
             } catch (Exception e) {
                 e.printStackTrace();
                 context.getFailedDatas().add(eventData);
@@ -233,14 +235,37 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
         Map<String, Object> newData = new HashMap<String, Object>();
         Map<String, Object> oldData = new HashMap<String, Object>();
         for (EventColumn column : data.getMaxwellColumns()) {
-            newData.put(column.getColumnName(), column.getColumnValue());
+            newData.put(column.getColumnName(), getValue(column));
         }
         for (EventColumn column : data.getOldMaxwellColumns()) {
-            oldData.put(column.getColumnName(), column.getColumnValue());
+            oldData.put(column.getColumnName(), getValue(column));
         }
         maxwellData.setData(newData);
         maxwellData.setOld(oldData);
         return maxwellData;
+    }
+
+    private Object getValue(EventColumn column){
+        if(column.isNull()){
+            return null;
+        }
+        switch (column.getColumnType()){
+            //转换成int
+            case Types.BIT:
+            case Types.INTEGER:
+            case Types.TINYINT:
+            case Types.SMALLINT:
+                return Integer.valueOf(column.getColumnValue());
+            case Types.BIGINT:
+                return Long.valueOf(column.getColumnValue());
+            case Types.FLOAT:
+            case Types.DECIMAL:
+            case Types.REAL:
+            case Types.NUMERIC:
+                return Double.valueOf(column.getColumnValue());
+            default:
+                return column.getColumnValue();
+        }
     }
 
     /**
