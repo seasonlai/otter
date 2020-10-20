@@ -262,6 +262,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
             case Types.DECIMAL:
             case Types.REAL:
             case Types.NUMERIC:
+            case Types.DOUBLE:
                 return Double.valueOf(column.getColumnValue());
             default:
                 return column.getColumnValue();
