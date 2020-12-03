@@ -130,7 +130,7 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
                 long weight = 10L;
                 controller.start(Collections.singletonList(weight));// weights可能为空，也得调用start方法
                 controller.await((int) weight);
-                doMQ(context, datas, (RabbitMqMedia)target);
+                doMQ(context, datas);
                 controller.single(weight);// weights可能为空，也得调用start方法
                 logger.info("mq同步完成");
             } else {
@@ -209,9 +209,10 @@ public class DbLoadAction implements InitializingBean, DisposableBean {
         return result;
     }
 
-    private void doMQ(DbLoadContext context, List<EventData> eventDatas, RabbitMqMedia target) {
+    private void doMQ(DbLoadContext context, List<EventData> eventDatas) {
         for (EventData eventData : eventDatas) {
             try {
+                RabbitMqMedia target = (RabbitMqMedia) ConfigHelper.findDataMedia(context.getPipeline(), eventData.getTableId());
                 final RabbitMqSender sender = rabbitMqSenderFactory.getSender(context.getPipeline().getId(), target.getSource());
                 sender.send(target.getNamespace(), target.getName(),
                         JSONObject.toJSONString(tran2MaxwellData(eventData), SerializerFeature.WriteMapNullValue, SerializerFeature.WriteNullListAsEmpty));
